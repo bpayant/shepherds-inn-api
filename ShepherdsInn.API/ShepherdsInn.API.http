@@ -1,0 +1,80 @@
+@ShepherdsInn_API_HostAddress = https://localhost:7227
+
+### Health check
+GET {{ShepherdsInn_API_HostAddress}}/api/health
+Accept: application/json
+
+
+### Submit valid contact message
+POST {{ShepherdsInn_API_HostAddress}}/api/contact
+Content-Type: application/json
+
+{
+  "name": "Test Person",
+  "phone": "(507) 555-1234",
+  "email": "test@example.com",
+  "preferredContact": "Call",
+  "subject": "General Inquiry",
+  "message": "This is a test message from the Shepherds Inn website.",
+  "website": ""
+}
+
+
+### Submit phone-only contact message
+POST {{ShepherdsInn_API_HostAddress}}/api/contact
+Content-Type: application/json
+
+{
+  "name": "Phone Only Test",
+  "phone": "(507) 555-1234",
+  "email": "",
+  "preferredContact": "Call",
+  "subject": "Phone Only Inquiry",
+  "message": "This is a test message with phone but no email.",
+  "website": ""
+}
+
+
+### Submit email-only contact message
+POST {{ShepherdsInn_API_HostAddress}}/api/contact
+Content-Type: application/json
+
+{
+  "name": "Email Only Test",
+  "phone": "",
+  "email": "test@example.com",
+  "preferredContact": "Email",
+  "subject": "Email Only Inquiry",
+  "message": "This is a test message with email but no phone.",
+  "website": ""
+}
+
+
+### Invalid: missing both phone and email
+POST {{ShepherdsInn_API_HostAddress}}/api/contact
+Content-Type: application/json
+
+{
+  "name": "Invalid Test",
+  "phone": "",
+  "email": "",
+  "preferredContact": "Call",
+  "subject": "Invalid Inquiry",
+  "message": "This should fail because there is no phone or email.",
+  "website": ""
+}
+
+
+### Honeypot spam test
+POST {{ShepherdsInn_API_HostAddress}}/api/contact
+Content-Type: application/json
+
+{
+  "name": "Spam Bot",
+  "phone": "(507) 555-9999",
+  "email": "spam@example.com",
+  "preferredContact": "Email",
+  "subject": "Spam Test",
+  "message": "This should look successful but should not be saved.",
+  "website": "https://spam-site.example"
+}
