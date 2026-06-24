@@ -4,6 +4,7 @@ public sealed class ShepherdsInnApiOptions
 {
     public ContactFormOptions ContactForm { get; init; } = new();
     public DatabaseOptions Database { get; init; } = new();
+    public EmailNotificationOptions EmailNotifications { get; init; } = new();
 
     public static ShepherdsInnApiOptions Create(IHostEnvironment environment)
     {

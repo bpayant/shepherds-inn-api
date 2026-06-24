@@ -1,7 +1,12 @@
+#region Using Statements
+
 using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using ShepherdsInn.API.Data;
 using ShepherdsInn.API.Configuration;
+using ShepherdsInn.API.Services;
+
+#endregion
 
 // Create the builder
 var builder = WebApplication.CreateBuilder(args);
@@ -11,11 +16,16 @@ var appOptions = ShepherdsInnApiOptions.Create(builder.Environment);
 builder.Services.AddSingleton(appOptions);
 builder.Services.AddSingleton(appOptions.ContactForm);
 builder.Services.AddSingleton(appOptions.Database);
+builder.Services.AddSingleton(appOptions.EmailNotifications);
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Add contact notifcation service implementation
+//builder.Services.AddScoped<IContactNotificationService, SmtpContactNotificationService>();
+builder.Services.AddScoped<IContactNotificationService, NullContactNotificationService>();
 
 // Configure CORS policy for the frontend
 builder.Services.AddCors(options =>
@@ -59,24 +69,29 @@ if (!string.IsNullOrWhiteSpace(dbFolder))
 builder.Services.AddDbContext<ShepherdsInnDbContext>(options =>
     options.UseSqlite($"Data Source={dbPath}"));
 
+// Build the app
 var app = builder.Build();
 
+// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// Ensure the database is created
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ShepherdsInnDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
 }
 
+// Configure middleware
 app.UseHttpsRedirection();
 app.UseCors(ApiPolicyNames.ShepherdsInnFrontendCors);
 app.UseRateLimiter();
 
+// Health check endpoint
 app.MapGet("/api/health", () => Results.Ok(new
 {
     status = "ok",
@@ -84,6 +99,8 @@ app.MapGet("/api/health", () => Results.Ok(new
     timestampUtc = DateTimeOffset.UtcNow
 }));
 
+// Map controller routes
 app.MapControllers();
 
+// Run the app
 app.Run();

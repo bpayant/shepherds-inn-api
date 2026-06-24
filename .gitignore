@@ -6,16 +6,25 @@ obj/
 .vs/
 *.user
 *.suo
+*.userosscache
+*.sln.docstates
 
-# Local database files
+# Local databases
 db/
 *.db
 *.db-shm
 *.db-wal
+*.sqlite
+*.sqlite3
+
+# Secrets / local config
+secrets.json
+appsettings.Local.json
+
+# Logs
+*.log
+logs/
 
 # OS files
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log

@@ -7,6 +7,7 @@ using ShepherdsInn.API.Configuration;
 using ShepherdsInn.API.Data;
 using ShepherdsInn.API.Dtos;
 using ShepherdsInn.API.Models;
+using ShepherdsInn.API.Services;
 
 #endregion
 
@@ -18,12 +19,17 @@ namespace ShepherdsInn.API.Controllers
     {
         private readonly ShepherdsInnDbContext _db;
         private readonly ContactFormOptions _contactFormOptions;
+        private readonly IContactNotificationService _contactNotificationService;
         private readonly ILogger<ContactController> _logger;
 
-        public ContactController(ShepherdsInnDbContext db, ContactFormOptions contactFormOptions, ILogger<ContactController> logger)
+        public ContactController(ShepherdsInnDbContext db,
+                                    ContactFormOptions contactFormOptions,
+                                    IContactNotificationService contactNotificationService,
+                                    ILogger<ContactController> logger)
         {
             _db = db;
             _contactFormOptions = contactFormOptions;
+            _contactNotificationService = contactNotificationService;
             _logger = logger;
         }
 
@@ -33,11 +39,13 @@ namespace ShepherdsInn.API.Controllers
             [FromBody] ContactRequest request,
             CancellationToken cancellationToken)
         {
+            _logger.LogInformation("Contact form submission started.");
             request ??= new ContactRequest();
 
             // Honeypot: bots may fill hidden fields. Return a normal response without saving.
             if (!string.IsNullOrWhiteSpace(request.Website))
             {
+                _logger.LogWarning("Contact form submission ignored (honeypot).");
                 return Ok(new ContactResponse
                 {
                     Success = true,
@@ -49,6 +57,10 @@ namespace ShepherdsInn.API.Controllers
 
             if (validationErrors.Count > 0)
             {
+                _logger.LogWarning(
+                    "Contact form validation failed. ErrorFields: {ErrorFields}",
+                    string.Join(", ", validationErrors.Keys));
+
                 return ValidationProblem(new ValidationProblemDetails(validationErrors)
                 {
                     Title = "Please check the form and try again.",
@@ -72,19 +84,45 @@ namespace ShepherdsInn.API.Controllers
                     ? Truncate(HttpContext.Connection.RemoteIpAddress?.ToString() ?? string.Empty, ContactFormLimits.MaxIpAddressLength) : string.Empty
             };
 
-            _db.ContactMessages.Add(contactMessage);
-            await _db.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation(
-                "Saved Shepherds Inn contact message {ContactMessageId} from {Name}.",
-                contactMessage.Id,
-                contactMessage.Name);
-
-            return Ok(new ContactResponse
+            try
             {
-                Success = true,
-                Message = "Thank you. Your message has been received."
-            });
+                _db.ContactMessages.Add(contactMessage);
+                await _db.SaveChangesAsync(cancellationToken);
+
+                try
+                {
+                    await _contactNotificationService.SendNewContactMessageNotificationAsync(
+                        contactMessage,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Contact form message was saved, but email notification failed. ContactMessageId: {ContactMessageId}",
+                        contactMessage.Id);
+                }
+
+                _logger.LogInformation(
+                    "Saved contact message {ContactMessageId} from {Name}.",
+                    contactMessage.Id,
+                    contactMessage.Name);
+
+                return Ok(new ContactResponse
+                {
+                    Success = true,
+                    Message = "Thank you. Your message has been received."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Contact form submission failed while saving message from {Name}.", contactMessage.Name);
+                return StatusCode(StatusCodes.Status500InternalServerError, new ContactResponse
+                {
+                    Success = false,
+                    Message = "Sorry, your message could not be submitted. Please call us at (507) 553-6271 instead."
+                });
+            }
         }
 
         private static Dictionary<string, string[]> ValidateRequest(ContactRequest request, ContactFormOptions contactFormOptions)
