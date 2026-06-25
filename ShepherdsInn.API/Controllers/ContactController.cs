@@ -35,7 +35,7 @@ namespace ShepherdsInn.API.Controllers
 
         [HttpPost]
         [EnableRateLimiting(ApiPolicyNames.ContactFormRateLimit)]
-        public async Task<ActionResult<ContactResponse>> Submit(
+        public async Task<ActionResult<ApiResponse>> Submit(
             [FromBody] ContactRequest request,
             CancellationToken cancellationToken)
         {
@@ -46,11 +46,7 @@ namespace ShepherdsInn.API.Controllers
             if (!string.IsNullOrWhiteSpace(request.Website))
             {
                 _logger.LogWarning("Contact form submission ignored (honeypot).");
-                return Ok(new ContactResponse
-                {
-                    Success = true,
-                    Message = "Thank you. Your message has been received."
-                });
+                return Ok(new ApiResponse(true, "Thank you. Your message has been received."));
             }
 
             var validationErrors = ValidateRequest(request, _contactFormOptions);
@@ -108,20 +104,14 @@ namespace ShepherdsInn.API.Controllers
                     contactMessage.Id,
                     contactMessage.Name);
 
-                return Ok(new ContactResponse
-                {
-                    Success = true,
-                    Message = "Thank you. Your message has been received."
-                });
+                return Ok(new ApiResponse(true, "Thank you. Your message has been received."));
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Contact form submission failed while saving message from {Name}.", contactMessage.Name);
-                return StatusCode(StatusCodes.Status500InternalServerError, new ContactResponse
-                {
-                    Success = false,
-                    Message = "Sorry, your message could not be submitted. Please call us at (507) 553-6271 instead."
-                });
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new ApiResponse(false, "Sorry, your message could not be submitted. Please call us at (507) 553-6271 instead."));
             }
         }
 
